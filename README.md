@@ -13,13 +13,13 @@
 
 Deploying conversational AI assistants in **Indian retail banking** requires an uncompromised balance of **multilingual capability**, **agentic tool execution**, and **ironclad safety**. In financial services, fluency alone is dangerous: an assistant that hallucinates account balances, executes money movements without explicit confirmation, leaks Personally Identifiable Information (PII), or falls prey to jailbreak attacks represents an existential regulatory and financial risk.
 
-In this project—developed for the [Lexsi AI Hackathon](https://hackathon.lexsi.ai/)—we present **Tiny-Aya-Fire-IndicBank**, a fine-tuned, sovereign 3.35B parameter banking agent evaluated on the official [IndicBankBench](https://arxiv.org/abs/2609.29167) benchmark released by the **National Payments Corporation of India (NPCI)**.
+we present **Tiny-Aya-Fire-IndicBank**, a fine-tuned, sovereign 3.35B parameter banking agent evaluated on the official [IndicBankBench](https://arxiv.org/abs/2609.29167) benchmark released by the **National Payments Corporation of India (NPCI)**.
 
 ### Key Highlights
 - **Massive Task Improvement (+700% relative gain):** LoRA fine-tuning lifts Cohere Labs' multilingual `tiny-aya-fire` from a base **3.0% strict pass³ (24/799)** up to **23.7% strict pass³ (189/799)** and **37.0% pass@3** on NPCI's 799 multi-turn retail banking cases.
 - **Rigorously Safer Against Attacks:** In our paired safety audit, attack success rate (ASR) against jailbreak attacks dropped by more than half—from **18.0% down to 8.5%** ($p < 0.001$), while agent policy violations such as write-without-confirmation and prompt injection dropped from **100% to 0%**.
 - **Discovery of the Over-Refusal Dilemma:** Plain fine-tuning significantly heightened defensive sensitivity, causing benign prompt refusal to jump from **17.0% to 32.0%** ($p < 0.001$).
-- **Mechanistic Interpretability via Lexsi Tooling (CircuitKIT & AuditKIT):** We leveraged **CircuitKIT** to map the multilingual refusal circuit and isolate the "real danger" ($r_{\text{true}}$) vs. "looks scary" ($r_{\text{false}}$) activation directions. We tested a training-free weight-orthogonalisation intervention with **AuditKIT**; when the post-hoc surgical edit failed to preserve the required safety threshold, we transparently documented and reported this as a **negative result**, releasing the verified fine-tuned model with complete audit transparency.
+- **Mechanistic Interpretability via Lexsi Tooling (CircuitKIT & AuditKIT):** We leveraged **CircuitKIT** to map the multilingual refusal circuit across transformer layers and isolate the "real danger" ($\mathbf{r}_{\text{true}}$) vs. "looks scary" ($\mathbf{r}_{\text{false}}$) activation directions. We tested a training-free weight-orthogonalisation intervention with **AuditKIT**; when the post-hoc surgical edit failed to preserve the required safety threshold, we transparently documented and reported this as an informative **negative result**, releasing the verified fine-tuned model with complete audit transparency.
 - **Cost & Privacy Sovereignty:** At only 3.35B parameters, this model eliminates the need to route sensitive banking data to offshore closed-source APIs, enabling Indian financial institutions to self-host high-reliability agents on cost-effective, on-premise infrastructure.
 
 ---
@@ -143,7 +143,11 @@ To understand where current AI systems stand on IndicBankBench, we examine the o
   Tiny-Aya-Fire (Base 3.35B)                 3.0%              16.8%
 ```
 
-Out of the box, `CohereLabs/tiny-aya-fire` (3.35B parameters) achieved a meager **3.0% strict pass³ (24/799)**. While tiny-aya-fire possesses strong foundational multilingual representations, it was completely unable to negotiate the stateful, multi-turn tool-calling protocol, frequently calling tools prematurely, hallucinating IDs, or breaking JSON syntax.
+Out of the box, `CohereLabs/tiny-aya-fire` (3.35B parameters) achieved a meager **3.0% strict pass³ (24/799)** and **16.8% pass@3**. 
+
+> 🔍 **Baseline Notebook Artifact:** The entire evaluation for the base model was run and verified in Kaggle using [`code/indi-bench-fire_base.ipynb`](code/indi-bench-fire_base.ipynb). This interactive notebook sets up dual vLLM servers on a GPU instance (hosting `tiny-aya-fire` alongside the `Qwen2.5-7B-Instruct-AWQ` judge), streams the 799 multi-turn cases, and produces the base evaluation metrics.
+
+While tiny-aya-fire possesses strong foundational multilingual representations, it was completely unable to negotiate the stateful, multi-turn tool-calling protocol, frequently calling tools prematurely, hallucinating IDs, or breaking JSON syntax.
 
 Following our fine-tuning regimen, the model surged to **23.7% strict pass³ (189/799)** and **37.0% pass@3**—surpassing the base model by **nearly 8x**.
 
@@ -220,7 +224,7 @@ The capability domain directly measures the model's resistance to illicit reques
 - **Social Engineering Traps:** **37% pass³** (7/19)
 
 ### Diagnostic Failure Analysis
-Analyzing the 610 non-passing cases reveals where challenges remain for a 3.35B parameter model:
+Analyzing the non-passing cases reveals where challenges remain for a 3.35B parameter model:
 - `R` (Semantic / Formatting criterion missed): 523 occurrences
 - `S1` (Login ID context mismatch): 436 occurrences
 - `A1` (Required tool not invoked): 356 occurrences
@@ -324,7 +328,7 @@ To ensure evaluating reliability, we benchmarked the neural judge (`Qwen/Qwen3Gu
 
 ## 8. Mechanistic Interpretability with CircuitKIT & AuditKIT
 
-Having quantified that fine-tuning induced a significant increase in over-refusal ($17\% \to 32\%$, $p < 0.001$), we investigated whether we could **mechanistically repair over-refusal without retraining**, utilizing tools provided in the Lexsi AI Hackathon ecosystem.
+Having quantified that fine-tuning induced a significant increase in over-refusal ($17\% \to 32\%$, $p < 0.001$), we investigated whether we could **mechanistically locate and repair over-refusal without retraining**, utilizing the interpretability and red-teaming toolchains provided in the Lexsi AI Hackathon ecosystem (**CircuitKIT** and **AuditKIT**).
 
 ```
                               Mechanistic Circuit Analysis Pipeline
@@ -362,20 +366,36 @@ Having quantified that fine-tuning induced a significant increase in over-refusa
  └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### The Method:
-1. **Locating the Refusal Circuit with CircuitKIT:** We used **CircuitKIT** (`multilingual_refusal` task using EAP-IG) to identify which attention heads and MLP layers causally drive refusal behavior in the fine-tuned model.
-2. **Isolating Activation Directions:** By analyzing residual-stream activations, we computed two distinct vectors:
-   $$\mathbf{r}_{\text{true}} = \mu(\text{Harmful}) - \mu(\text{Benign}) \quad \text{("Real Danger")}$$
-   $$\mathbf{r}_{\text{false}} = \mu(\text{Falsely Refused}) - \mu(\text{Complied}) \quad \text{("Looks Scary")}$$
-3. **Orthogonal Projection:** To ensure removing the "looks scary" direction would not compromise genuine safety defenses, we mathematically orthogonalised $\mathbf{r}_{\text{false}}$ with respect to $\mathbf{r}_{\text{true}}$:
-   $$\mathbf{r}_{\text{false}}^{\perp} = \mathbf{r}_{\text{false}} - (\mathbf{r}_{\text{false}} \cdot \hat{\mathbf{r}}_{\text{true}})\hat{\mathbf{r}}_{\text{true}}$$
-4. **Surgical Weight Orthogonalisation:** In the attention output matrices (`o_proj`) and MLP down-projections (`down_proj`) of the CircuitKIT-selected layers, we ablated the $\mathbf{r}_{\text{false}}^{\perp}$ component across a sweep of intervention strengths $\alpha \in [0.5, 1.0, 1.5]$.
-5. **Auditing with AuditKIT:** Using **AuditKIT**, we passed every candidate model through an automated safety gate: harmful prompt refusal was required to degrade by no more than 2% absolute, while preserving bank-agent policy constraints.
+### Detailed Circuit Findings & Visual Evidence
 
-### Scientific Integrity: Reporting Our Negative Result
-While the offline self-test on a synthetic toy model validated the linear algebra of the projection, on the real 3.35B parameter model, **the weight-orthogonalisation intervention failed to satisfy our strict safety gate**. The surgical ablation either failed to meaningfully alleviate over-refusal or caused collateral degradation in refusal of genuine harmful attacks.
+#### 1. Locating Where Refusal Lives with CircuitKIT
+Using **CircuitKIT** configured for the `multilingual_refusal` task with Edge Attribution Patching via Integrated Gradients (EAP-IG), we ranked every transformer layer by its causal contribution to the refusal mechanism.
 
-Rather than publishing an unverified or compromised checkpoint, **we withdrew the edited weights and chose not to release the repaired model**. We report this candidly as an informative **negative result**: post-hoc weight orthogonalisation without fine-tuning is insufficient to disentangle subtle semantic boundaries in compact 3B parameter models. The released model is our verified fine-tuned model (`imrancoder/tiny-aya-fire-indicbank`), with its measured safety/over-refusal characteristics openly documented.
+![Refusal Circuit by Layer](figures/2_circuit_layers.png)
+*Figure 9: Layer-by-layer attribution score from CircuitKIT (sum $|score|$). The causal refusal circuit is strongly concentrated in specific intermediate and late transformer layers (highlighted in teal), pinpointing where safety decisions are computed.*
+
+#### 2. Geometric Separability: Is 'Looks Scary' Separable from 'Is Dangerous'?
+To determine whether over-refusal could be surgically excised without touching genuine safety, we measured the cosine similarity between the "real danger" direction $\mathbf{r}_{\text{true}}$ (residual stream activations on harmful prompts) and the "looks scary" false-refusal direction $\mathbf{r}_{\text{false}}$ (activations on falsely refused cybersecurity/banking prompts) across all layers:
+$$\cos(\mathbf{r}_{\text{false}}, \mathbf{r}_{\text{true}}) = \frac{\mathbf{r}_{\text{false}} \cdot \mathbf{r}_{\text{true}}}{\|\mathbf{r}_{\text{false}}\| \|\mathbf{r}_{\text{true}}\|}$$
+
+![Direction Cosine Similarity](figures/3_direction_cosine.png)
+*Figure 10: Cosine similarity between the false-refusal direction and the danger direction across transformer layers. While earlier layers exhibit near-orthogonality (near zero), deeper layers—precisely where CircuitKIT identifies strong refusal attribution—show entangled representations, making clean linear excision challenging.*
+
+#### 3. The Over-Refusal Repair Sweep & The Safety Gate
+In an attempt to ablate the orthogonalized false-refusal direction $\mathbf{r}_{\text{false}}^{\perp}$ from the attention output (`o_proj`) and MLP down-projection (`down_proj`) matrices, we ran an automated parameter sweep evaluated with **AuditKIT**:
+- **Layer Sets:** Interventions restricted strictly to CircuitKIT-identified layers (teal) vs. applied across all layers (grey).
+- **Intervention Strengths:** $\alpha \in [0.5, 1.0, 1.5]$.
+- **Safety Gate:** Harmful prompt refusal was required to stay within 2% absolute of the original fine-tuned baseline ($98\% - 2\% = 96\%$).
+
+![Sweep Trade-off](figures/1_sweep_tradeoff.png)
+*Figure 11: Pareto sweep of over-refusal on held-out borderline-benign prompts (%) vs. refusal on held-out harmful prompts (%). The horizontal dashed line denotes the non-negotiable safety gate. The red square indicates the fine-tuned model before repair; the star marks the candidate setting selected by the sweep.*
+
+#### 4. Scientific Integrity: Documenting Our Negative Result
+While the linear algebra of the projection was validated on a synthetic self-test, on the full 3.35B model, **the weight-orthogonalisation intervention failed to satisfy our strict deployment criteria**:
+- Settings that successfully lowered benign over-refusal compromised the safety gate, causing harmful prompt refusal to degrade beyond the allowable 2% margin.
+- Settings that respected the safety gate produced negligible reductions in over-refusal or disrupted tool-calling formatting in multi-turn dialogues.
+
+Following sound scientific principles, **we withdrew the edited weights and chose not to release the repaired model**. We candidly document this as an informative **negative result**: post-hoc weight orthogonalisation without fine-tuning is insufficient to disentangle subtle semantic boundaries in compact 3B parameter models. The released model is our verified fine-tuned model (`imrancoder/tiny-aya-fire-indicbank`), with its measured safety/over-refusal characteristics openly documented.
 
 ---
 
@@ -419,11 +439,12 @@ Building on the foundation established in this hackathon, we outline our strateg
 
 ## 11. Reproducibility & Open Artifacts
 
-Every experiment, training run, evaluation, and safety audit in this project was conducted using reproducible Hugging Face Jobs on A100-large instances.
+Every experiment, training run, evaluation, and safety audit in this project was conducted using reproducible Hugging Face Jobs on A100-large instances and interactive Kaggle notebooks.
 
-### Released Repositories
+### Released Repositories & Notebooks
 - **Fine-Tuned Model:** [`imrancoder/tiny-aya-fire-indicbank`](https://huggingface.co/imrancoder/tiny-aya-fire-indicbank) (Public, ungated weights with vLLM-compatible configs and custom chat template)
 - **Evaluation Logs & Safeguard Datasets:** [`imrancoder/tiny-aya-fire-indicbank-eval-logs`](https://huggingface.co/datasets/imrancoder/tiny-aya-fire-indicbank-eval-logs)
+- **Interactive Base Evaluation Notebook:** [`code/indi-bench-fire_base.ipynb`](code/indi-bench-fire_base.ipynb) (Kaggle notebook establishing the 3.0% baseline on IndicBankBench with dual vLLM servers)
 
 ### Step-by-Step Reproduction Guide
 
@@ -453,6 +474,12 @@ hf jobs uv run --flavor a100-large --timeout 4h -s HF_TOKEN \
 hf jobs uv run --flavor a100-large --timeout 2h -s HF_TOKEN \
   -e FT_REPO=your-username/tiny-aya-fire-indicbank \
   code/safeguard_analysis_hf_job.py
+```
+
+#### Step 4: Mechanistic Circuit Discovery & Sweep (~30 min on A100)
+```bash
+hf jobs uv run --flavor a100-large --timeout 3h -s HF_TOKEN \
+  code/safety_overrefusal_fix_hf_job_EXPERIMENTAL.py
 ```
 
 #### Offline Sanity Self-Tests (No GPU / Network Required)
