@@ -372,11 +372,14 @@ Having quantified that fine-tuning induced a significant increase in over-refusa
 Using **CircuitKIT** configured for the `multilingual_refusal` task with Edge Attribution Patching via Integrated Gradients (EAP-IG), we ranked every transformer layer by its causal contribution to the refusal mechanism.
 
 ![Refusal Circuit by Layer](figures/2_circuit_layers.png)
-*Figure 9: Layer-by-layer attribution score from CircuitKIT (sum $|score|$). The causal refusal circuit is strongly concentrated in specific intermediate and late transformer layers (highlighted in teal), pinpointing where safety decisions are computed.*
+*Figure 9: Layer-by-layer attribution score from CircuitKIT (sum |score|). The causal refusal circuit is strongly concentrated in specific intermediate and late transformer layers (highlighted in teal), pinpointing where safety decisions are computed.*
 
 #### 2. Geometric Separability: Is 'Looks Scary' Separable from 'Is Dangerous'?
-To determine whether over-refusal could be surgically excised without touching genuine safety, we measured the cosine similarity between the "real danger" direction $\mathbf{r}_{\text{true}}$ (residual stream activations on harmful prompts) and the "looks scary" false-refusal direction $\mathbf{r}_{\text{false}}$ (activations on falsely refused cybersecurity/banking prompts) across all layers:
-$$\cos(\mathbf{r}_{\text{false}}, \mathbf{r}_{\text{true}}) = \frac{\mathbf{r}_{\text{false}} \cdot \mathbf{r}_{\text{true}}}{\|\mathbf{r}_{\text{false}}\| \|\mathbf{r}_{\text{true}}\|}$$
+
+To determine whether over-refusal could be surgically excised without touching genuine safety, we measured the cosine similarity between the "real danger" direction $`\mathbf{r}_{\text{true}}`$ (residual stream activations on harmful prompts) and the "looks scary" false-refusal direction $`\mathbf{r}_{\text{false}}`$ (activations on falsely refused cybersecurity/banking prompts) across all layers:
+
+$$\cos(\mathbf{r}_{\text{false}}, \mathbf{r}_{\text{true}}) = \frac{\mathbf{r}_{\text{false}} \cdot \mathbf{r}_{\text{true}}}{\|\mathbf{r}_{\text{false}}\| \, \|\mathbf{r}_{\text{true}}\|}$$
+
 
 ![Direction Cosine Similarity](figures/3_direction_cosine.png)
 *Figure 10: Cosine similarity between the false-refusal direction and the danger direction across transformer layers. While earlier layers exhibit near-orthogonality (near zero), deeper layers—precisely where CircuitKIT identifies strong refusal attribution—show entangled representations, making clean linear excision challenging.*
@@ -502,7 +505,6 @@ This submission addresses the following tracks in the [Lexsi AI Hackathon](https
 - **Track 2b – AI Safety & Mechanistic Interpretability:**
   - Problem #5: Safety-preserving fine-tuning (auditing the safety shifts of plain fine-tuning)
   - Problem #9: Locating where safety and refusal mechanisms reside using **CircuitKIT**
-  - Problem #6 / #10: Repairing over-refusal without retraining using **AuditKIT** and weight orthogonalisation (documented negative result)
 
 ### Declaration of Prior Work
 All fine-tuning scripts, data generation logic, safety evaluation suites, circuit audit implementations, and benchmark evaluation jobs were created and executed exclusively during the Lexsi AI Hackathon period (November 2026). Open-source models (`CohereLabs/tiny-aya-fire`, `Qwen/Qwen3Guard-Gen-4B`), public benchmarks (NPCI's `IndicBankBench`), and hackathon libraries (`CircuitKIT`, `AuditKIT`) were used in strict compliance with their respective open licenses.
