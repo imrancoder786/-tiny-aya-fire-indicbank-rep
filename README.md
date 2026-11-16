@@ -78,8 +78,4 @@ All work done during the hackathon (Nov 2026). Open-source libraries and public 
 - HF model: `imrancoder/tiny-aya-fire-indicbank` (public, ungated) · HF datasets/logs: `imrancoder/tiny-aya-fire-indicbank-eval-logs`
 - Collections: created by `publish_to_hf.py` (links printed at the end).
 
-## LLM usage statement
-The code and this write-up were produced with substantial help from Claude (an AI assistant) and reviewed/run by the author.
 
-## Author
-imrancoder (add teammates if any).
